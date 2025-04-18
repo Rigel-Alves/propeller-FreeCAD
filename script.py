@@ -1,33 +1,34 @@
 import sys
 import numpy as np
 
-# NACA 2412
-m = 0.02
-p = 0.4
-t = 0.12
+# this is done automatically when running the script from inside FreeCAD
+# import FreeCAD as App
+# import Part
+# import Sketcher
 
+# 4-digit NACA profile for the airfoil:
+profile = '2412'
+
+chord_hub = 340 # mm
+chord_tip = 0.2*chord_hub # mm
+pitch_tip = 60 # degree
+x_tip = 0.1*chord_hub # mm
+y_tip = 0.2*chord_hub # mm
+span = 1200 # mm
+n_span = 11 # should be an odd number
+
+### END USER-DEFINED PARAMETERS ###
+
+
+# for the definition of the equations below, see https://en.wikipedia.org/wiki/NACA_airfoil#Equation_for_a_cambered_4-digit_NACA_airfoil
 def get_yt(x, t):
     return 5*t*(0.2969*x**0.5 - 0.1260*x - 0.3516*x**2 + 0.2843*x**3 - 0.1015*x**4)
 
 def get_yc(x, m, p):
     return np.where((x >= 0) & (x < p), m/p**2 * (2*p*x - x**2), m/(1-p)**2 * ((1 - 2*p) + 2*p*x - x**2))
-    # if (x >= 0) and (x < p):
-    #     return m/p**2 * (2*p*x - x**2)
-    # elif (x >= p) and (x <= 1):
-    #     return m/(1-p)**2 * ((1 - 2*p) + 2*p*x - x**2)
-    # else:
-    #     print("invalid x")
-    #     sys.exit()
 
 def get_dycdx(x, m, p):
     return np.where((x >= 0) & (x < p), 2*m/p**2 * (p - x), 2*m/(1 - p)**2 * (p - x))
-    # if x >= 0 and x < p:
-    #     return 2*m/p**2*(p-x)
-    # elif x >= p and x <= 1:
-    #     return 2*m/(1-p)**2*(p-x)
-    # else:
-    #     print("invalid x")
-    #     sys.exit()
 
 def get_theta(x, m, p):
     dycdx = get_dycdx(x, m, p)
@@ -40,29 +41,39 @@ def get_coords(x, m, p, t):
     # x_upper, x_lower, y_upper, y_lower
     return [x - yt*np.sin(theta), x + yt*np.sin(theta), yc + yt*np.cos(theta), yc - yt*np.cos(theta)]
 
-x = np.linspace(0.0, 1.0, 83)
+
+# we need to properly discretize the chord direction of the airfoil, especially at the leading edge, where the curvature is stronger
+x = []
+x.extend(np.linspace(0.00, 0.05, 10, endpoint=False))
+x.extend(np.linspace(0.05, 0.15, 10, endpoint=False))
+x.extend(np.linspace(0.15, 0.35, 10, endpoint=False))
+x.extend(np.linspace(0.35, 0.75, 10, endpoint=False))
+x.extend(np.linspace(0.75, 1.00, 11))
+x = np.array(x)
+
+# for the definition of the variables below, see https://en.wikipedia.org/wiki/NACA_airfoil#Equation_for_a_cambered_4-digit_NACA_airfoil
+m = int(profile[0]) / 100
+p = int(profile[1]) / 10
+t = int(profile[2] + profile[3]) / 100
 
 x_upper, x_lower, y_upper, y_lower = get_coords(x, m, p, t)
-print("x_upper =", x_upper)
-print("y_upper =", y_upper)
-print("x_lower =", x_lower)
-print("y_lower =", y_lower)
+#print("x_upper =", x_upper)
+#print("y_upper =", y_upper)
+#print("x_lower =", x_lower)
+#print("y_lower =", y_lower)
 
 constrained = True
 document = 'Unnamed'
 
 App.newDocument()
 App.activeDocument().addObject('PartDesign::Body','Body')
-App.ActiveDocument.getObject('Body').Label = 'Corpo'
+App.ActiveDocument.getObject('Body').Label = 'Body'
 
-chord_hub = 340 # mm
-span = 1200 # mm
-n_span = 11
 spans = np.linspace(0.0, span, n_span) # mm
-chords = np.linspace(chord_hub, 0.2*chord_hub, n_span) # mm
-pitchs = np.linspace(0, 60, n_span) # degree
-delta_x = np.linspace(0, 0.1*chord_hub, n_span) # mm
-delta_y = np.linspace(0, 0.2*chord_hub, n_span) # mm
+chords = np.linspace(chord_hub, chord_tip, n_span) # mm
+pitchs = np.linspace(0, pitch_tip, n_span) # degree
+delta_x = np.linspace(0, x_tip, n_span) # mm
+delta_y = np.linspace(0, y_tip, n_span) # mm
 
 sketch_names = []
 for span_id, span_height in enumerate(spans):
@@ -72,7 +83,7 @@ for span_id, span_height in enumerate(spans):
     App.getDocument('Unnamed').getObject('Body').newObject('Sketcher::SketchObject',sketch)
     App.getDocument('Unnamed').getObject(sketch).AttachmentSupport = (App.getDocument('Unnamed').getObject('XY_Plane'),[''])
     App.getDocument('Unnamed').getObject(sketch).MapMode = 'FlatFace'
-    FreeCAD.getDocument('Unnamed').getObject(sketch).AttachmentOffset = App.Placement(App.Vector(delta_x[span_id],delta_y[span_id],span_height),App.Rotation(App.Vector(0,0,1),pitchs[span_id]))
+    App.getDocument('Unnamed').getObject(sketch).AttachmentOffset = App.Placement(App.Vector(delta_x[span_id],delta_y[span_id],span_height),App.Rotation(App.Vector(0,0,1),pitchs[span_id]))
 
     x_upper_chord = x_upper*chords[span_id]
     x_lower_chord = x_lower*chords[span_id]
@@ -85,10 +96,11 @@ for span_id, span_height in enumerate(spans):
     points_upper = []
     points_lower = []
 
-    object_id = -1
     point_ids_upper = []
     point_ids_lower = []
 
+    # each geometrical entity in FreeCAD has an ID, assigned by order of creation
+    object_id = -1
     for i in range(len(x)):
         # suction side (upper points)
         object_id += 1
@@ -96,6 +108,7 @@ for span_id, span_height in enumerate(spans):
         points_upper.append(Part.Point(vectors_upper[i]))
         point_ids_upper.append(object_id)
         App.getDocument('Unnamed').getObject(sketch).addGeometry(points_upper[i], True) # the boolean flag is construction mode or not
+        # constraining the points does not ensure the spline by these points will be constrained; I don't know why
 #        if constrained:
 #            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_upper[i],1,x_upper_chord[i]))
 #            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_upper[i],1,y_upper_chord[i]))
@@ -106,10 +119,13 @@ for span_id, span_height in enumerate(spans):
         points_lower.append(Part.Point(vectors_lower[i]))
         point_ids_lower.append(object_id)
         App.getDocument('Unnamed').getObject(sketch).addGeometry(points_lower[i], True) # the boolean flag is construction mode or not
+        # constraining the points does not ensure the spline by these points will be constrained; I don't know why
 #        if constrained:
 #            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_lower[i],1,x_lower_chord[i]))
 #            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_lower[i],1,y_lower_chord[i]))
 
+
+    # We don't need to create the begin of chord (0,0) point, as it is automatically defined in FreeCAD
 
     #sys.exit()
     # end of chord (auxiliary point)
@@ -123,8 +139,13 @@ for span_id, span_height in enumerate(spans):
     if constrained:
         App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',chord_end_id,1,chords[span_id]))
         #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',chord_end_id,1,0))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('PointOnObject',chord_end_id,1,-1))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('PointOnObject',chord_end_id,1,-1)) # the end of chord always lies in the x axis
 
+
+    # Since some meshing software for CFD require the definition of the leading edge and the trailing edge, we will need to use two splines,
+    # one for the suction side, one for the pressure side;
+    # there will be a small corner in the root (begin of chord) point,
+    # but I have not managed so far to successfully apply a tangent constraint on the region
 
     #sys.exit()
     # suction side (upper spline)
@@ -153,10 +174,16 @@ for span_id, span_height in enumerate(spans):
         conList = []
         for i in range(len(x)):
             conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
+
+            # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
+            #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
+
         App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
         del conList
 
+        # the first point of the upper spline is equivalent to the origin of the x,y system (0,0), which has id = -1 in FreeCAD
         App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', point_ids_upper[0], 1, -1, 1))
+
         App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
 
 
@@ -187,12 +214,20 @@ for span_id, span_height in enumerate(spans):
         conList = []
         for i in range(len(x)):
             conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_lower[i],1,spline_lower_id,i))
+
+            # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
+            #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_lower[i],1,spline_lower_id,i))
+
         App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
         del conList
 
+        # the first point of the lower spline is equivalent to the first point of the upper spline
         App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', point_ids_lower[0], 1, point_ids_upper[0], 1))
+
         App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_lower_id))
 
+
+    # The trailing edge will be blunt, but some meshing software are able to automatically change it for round
 
     #sys.exit()
     # trailing edge upper
@@ -217,7 +252,7 @@ for span_id, span_height in enumerate(spans):
 
 
     #sys.exit()
-    # end of loop
+    # end of span loop
 
 #sys.exit()
 App.getDocument('Unnamed').getObject('Body').newObject('PartDesign::AdditiveLoft','AdditiveLoft')
