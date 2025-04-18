@@ -5,5 +5,4 @@ This code attemps to implement an automatic and parametric way of generating pro
 
 ## TO DO:
 - expand to NACA 5 and 6-digits profiles;
-- allows one airfoild profile at blade bottom to gradually become another profile at blade top;
 - expand to non NACA profiles (http://www.airfoiltools.com/).

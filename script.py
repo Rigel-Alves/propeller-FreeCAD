@@ -6,8 +6,9 @@ import numpy as np
 # import Part
 # import Sketcher
 
-# 4-digit NACA profile for the airfoil:
-profile = '2412'
+# 4-digit NACA profiles for the hub and tip:
+profile_hub = '0012'
+profile_tip = '2414'
 
 chord_hub = 340 # mm
 chord_tip = 0.2*chord_hub # mm
@@ -35,11 +36,21 @@ def get_theta(x, m, p):
     return np.arctan(dycdx)
 
 def get_coords(x, m, p, t):
-    yt = get_yt(x, t)
-    yc = get_yc(x, m, p)
-    theta = get_theta(x, m, p)
-    # x_upper, x_lower, y_upper, y_lower
-    return [x - yt*np.sin(theta), x + yt*np.sin(theta), yc + yt*np.cos(theta), yc - yt*np.cos(theta)]
+    # symmetric airfoils
+    if m == 0 and p == 0:
+        yt = get_yt(x, t)
+
+        # x_upper, x_lower, y_upper, y_lower
+        return [x, x, yt, -yt]
+
+    # cambered airfoils
+    else:
+        yt = get_yt(x, t)
+        yc = get_yc(x, m, p)
+        theta = get_theta(x, m, p)
+
+        # x_upper, x_lower, y_upper, y_lower
+        return [x - yt*np.sin(theta), x + yt*np.sin(theta), yc + yt*np.cos(theta), yc - yt*np.cos(theta)]
 
 
 # we need to properly discretize the chord direction of the airfoil, especially at the leading edge, where the curvature is stronger
@@ -52,15 +63,13 @@ x.extend(np.linspace(0.75, 1.00, 11))
 x = np.array(x)
 
 # for the definition of the variables below, see https://en.wikipedia.org/wiki/NACA_airfoil#Equation_for_a_cambered_4-digit_NACA_airfoil
-m = int(profile[0]) / 100
-p = int(profile[1]) / 10
-t = int(profile[2] + profile[3]) / 100
+m_hub = int(profile_hub[0]) / 100
+p_hub = int(profile_hub[1]) / 10
+t_hub = int(profile_hub[2] + profile_hub[3]) / 100
 
-x_upper, x_lower, y_upper, y_lower = get_coords(x, m, p, t)
-#print("x_upper =", x_upper)
-#print("y_upper =", y_upper)
-#print("x_lower =", x_lower)
-#print("y_lower =", y_lower)
+m_tip = int(profile_tip[0]) / 100
+p_tip = int(profile_tip[1]) / 10
+t_tip = int(profile_tip[2] + profile_tip[3]) / 100
 
 constrained = True
 document = 'Unnamed'
@@ -74,9 +83,15 @@ chords = np.linspace(chord_hub, chord_tip, n_span) # mm
 pitchs = np.linspace(0, pitch_tip, n_span) # degree
 delta_x = np.linspace(0, x_tip, n_span) # mm
 delta_y = np.linspace(0, y_tip, n_span) # mm
+m = np.linspace(m_hub, m_tip, n_span)
+p = np.linspace(p_hub, p_tip, n_span)
+t = np.linspace(t_hub, t_tip, n_span)
 
 sketch_names = []
 for span_id, span_height in enumerate(spans):
+    # retrieve current airfoil coordinates
+    x_upper, x_lower, y_upper, y_lower = get_coords(x, m[span_id], p[span_id], t[span_id])
+
     sketch = 'Sketch' + str(span_id)
     sketch_names.append(sketch)
 
