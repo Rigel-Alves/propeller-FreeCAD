@@ -1,8 +1,13 @@
 # Parametric propeller blade generator for FreeCAD
 
-This code attemps to implement an automatic and parametric way of generating propeller blades with FreeCAD. It allows you to choose a NACA 4-digits profile and extrude it following an arbitrary number of spanwise variations of the airfoil profile. Each spanwise section can have a modified (x, y) placement, pitch angle and chord.
+This code attemps to implement an automatic and parametric way of generating propeller blades with FreeCAD. It allows you to either:
+- choose a NACA 4-digits profile for the hub and another one for the tip and extrude from one to the other, following an arbitrary number of spanwise graduations between them;
+- pick blunt trailing edge profiles available at http://www.airfoiltools.com/ and extrude between them.
+
+Each spanwise section can have a modified (x, y) placement, pitch angle and chord.
 
 
 ## TO DO:
 - expand to NACA 5 and 6-digits profiles;
-- expand to non NACA profiles (http://www.airfoiltools.com/).
+- expand to sharp trailing edge profiles available at http://www.airfoiltools.com/.
+
