@@ -1,14 +1,22 @@
 import sys
 import numpy as np
+import pandas as pd
 
 # this is done automatically when running the script from inside FreeCAD
 # import FreeCAD as App
 # import Part
 # import Sketcher
 
-# 4-digit NACA profiles for the hub and tip:
+# there are two main modes of using this script ('local', 'internet')
+mode = 'local'
+
+# when using 'local' mode, 4-digit NACA profiles for the hub and tip:
 profile_hub = '0012'
 profile_tip = '2414'
+
+# when using 'internet' mode, airfoils to be used from http://airfoiltools.com
+# should be an odd number and none airfoil can end at (1, 0), i.e. no sharp trailing edge
+airfoils = ('a18sm-il', 'avistar-il', 'ls413-il')
 
 chord_hub = 340 # mm
 chord_tip = 0.2*chord_hub # mm
@@ -16,7 +24,15 @@ pitch_tip = 60 # degree
 x_tip = 0.1*chord_hub # mm
 y_tip = 0.2*chord_hub # mm
 span = 1200 # mm
-n_span = 11 # should be an odd number
+
+# should be an odd number and equal to len(airfoils) if you are using 'internet' mode
+if mode == 'local':
+    n_span = 11
+elif mode == 'internet':
+    n_span = len(airfoils)
+else:
+    print('Unknown mode')
+    sys.exit()
 
 ### END USER-DEFINED PARAMETERS ###
 
@@ -90,7 +106,20 @@ t = np.linspace(t_hub, t_tip, n_span)
 sketch_names = []
 for span_id, span_height in enumerate(spans):
     # retrieve current airfoil coordinates
-    x_upper, x_lower, y_upper, y_lower = get_coords(x, m[span_id], p[span_id], t[span_id])
+    if mode == 'local':
+        x_upper, x_lower, y_upper, y_lower = get_coords(x, m[span_id], p[span_id], t[span_id])
+
+    else:
+        data = pd.read_csv('http://airfoiltools.com/airfoil/lednicerdatfile?airfoil=' + airfoils[span_id])
+        data[data.columns[0]] = data[data.columns[0]].str.strip()
+        data[['x', 'y']] = data[data.columns[0]].str.split(' ', n=1, expand=True)
+        data = data.drop(data.columns[0], axis=1)
+        data = data.astype(float)
+
+        x_upper = np.array(data['x'][1:int(data['x'][0])+1])
+        x_lower = np.array(data['x'][int(data['x'][0])+1:])
+        y_upper = np.array(data['y'][1:int(data['y'][0])+1])
+        y_lower = np.array(data['y'][int(data['y'][0])+1:])
 
     sketch = 'Sketch' + str(span_id)
     sketch_names.append(sketch)
@@ -116,7 +145,7 @@ for span_id, span_height in enumerate(spans):
 
     # each geometrical entity in FreeCAD has an ID, assigned by order of creation
     object_id = -1
-    for i in range(len(x)):
+    for i in range(len(x_upper)):
         # suction side (upper points)
         object_id += 1
         vectors_upper.append(App.Vector(x_upper_chord[i], y_upper_chord[i], 0))
@@ -128,6 +157,7 @@ for span_id, span_height in enumerate(spans):
 #            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_upper[i],1,x_upper_chord[i]))
 #            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_upper[i],1,y_upper_chord[i]))
 
+    for i in range(len(x_lower)):
         # pressure side (lower points)
         object_id += 1
         vectors_lower.append(App.Vector(x_lower_chord[i], y_lower_chord[i], 0))
@@ -143,18 +173,18 @@ for span_id, span_height in enumerate(spans):
     # We don't need to create the begin of chord (0,0) point, as it is automatically defined in FreeCAD
 
     #sys.exit()
-    # end of chord (auxiliary point)
-    object_id += 1
-    chord_end_id = object_id
-
-    chord_end_vector = App.Vector(chords[span_id], 0, 0)
-    chord_end_point = Part.Point(chord_end_vector)
-
-    App.getDocument('Unnamed').getObject(sketch).addGeometry(chord_end_point, True)
-    if constrained:
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',chord_end_id,1,chords[span_id]))
-        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',chord_end_id,1,0))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('PointOnObject',chord_end_id,1,-1)) # the end of chord always lies in the x axis
+    # end of chord (auxiliary point) # not being used for the moment
+#    object_id += 1
+#    chord_end_id = object_id
+#
+#    chord_end_vector = App.Vector(chords[span_id], 0, 0)
+#    chord_end_point = Part.Point(chord_end_vector)
+#
+#    App.getDocument('Unnamed').getObject(sketch).addGeometry(chord_end_point, True)
+#    if constrained:
+#        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',chord_end_id,1,chords[span_id]))
+#        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',chord_end_id,1,0))
+#        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('PointOnObject',chord_end_id,1,-1)) # the end of chord always lies in the x axis
 
 
     # Since some meshing software for CFD require the definition of the leading edge and the trailing edge, we will need to use two splines,
@@ -187,7 +217,7 @@ for span_id, span_height in enumerate(spans):
 
     if constrained:
         conList = []
-        for i in range(len(x)):
+        for i in range(len(x_upper)):
             conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
 
             # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
@@ -227,7 +257,7 @@ for span_id, span_height in enumerate(spans):
 
     if constrained:
         conList = []
-        for i in range(len(x)):
+        for i in range(len(x_lower)):
             conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_lower[i],1,spline_lower_id,i))
 
             # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
@@ -248,22 +278,30 @@ for span_id, span_height in enumerate(spans):
     # trailing edge upper
     object_id += 1
     TE_upper_id = object_id
-    TE_upper_line = Part.LineSegment(vectors_upper[-1],chord_end_vector)
+    #TE_upper_line = Part.LineSegment(vectors_upper[-1],chord_end_vector)
+    TE_upper_line = Part.LineSegment(vectors_upper[-1],App.Vector(x_upper_chord[-1], y_upper_chord[-1] - 0.1, 0))
     App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_upper_line,False)
 
     App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_upper_id, 1, point_ids_upper[-1], 1))
-    App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_upper_id, 2, chord_end_id, 1))
+    #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_upper_id, 2, chord_end_id, 1))
+    App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Vertical', TE_upper_id))
 
 
     #sys.exit()
     # trailing edge lower
     object_id += 1
     TE_lower_id = object_id
-    TE_lower_line = Part.LineSegment(vectors_lower[-1],chord_end_vector)
+    #TE_lower_line = Part.LineSegment(vectors_lower[-1],chord_end_vector)
+    TE_lower_line = Part.LineSegment(vectors_lower[-1],App.Vector(x_lower_chord[-1], y_lower_chord[-1] + 0.1, 0))
     App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_lower_line,False)
 
     App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_lower_id, 1, point_ids_lower[-1], 1))
-    App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_lower_id, 2, chord_end_id, 1))
+    #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_lower_id, 2, chord_end_id, 1))
+    App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Vertical', TE_lower_id))
+
+    # join upper and lower parts of trailing edge
+    App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_upper_id, 2, TE_lower_id, 2))
+    App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Equal',TE_upper_id,TE_lower_id))
 
 
     #sys.exit()
