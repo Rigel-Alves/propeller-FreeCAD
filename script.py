@@ -15,8 +15,8 @@ profile_hub = '0012'
 profile_tip = '2414'
 
 # when using 'internet' mode, airfoils to be used from http://airfoiltools.com
-# should be an odd number and none airfoil can end at (1, 0), i.e. no sharp trailing edge
-airfoils = ('a18sm-il', 'avistar-il', 'ls413-il')
+# none airfoil can end at (1, 0), i.e. no sharp trailing edge
+airfoils = ('a18sm-il', 'avistar-il', 'ls413-il', 'pmc19sm-il', 'wb140-il')
 
 chord_hub = 340 # mm
 chord_tip = 0.2*chord_hub # mm
@@ -25,7 +25,7 @@ x_tip = 0.1*chord_hub # mm
 y_tip = 0.2*chord_hub # mm
 span = 1200 # mm
 
-# should be an odd number and equal to len(airfoils) if you are using 'internet' mode
+# should be equal to len(airfoils) if you are using 'internet' mode
 if mode == 'local':
     n_span = 11
 elif mode == 'internet':
@@ -69,23 +69,25 @@ def get_coords(x, m, p, t):
         return [x - yt*np.sin(theta), x + yt*np.sin(theta), yc + yt*np.cos(theta), yc - yt*np.cos(theta)]
 
 
-# we need to properly discretize the chord direction of the airfoil, especially at the leading edge, where the curvature is stronger
-x = []
-x.extend(np.linspace(0.00, 0.05, 10, endpoint=False))
-x.extend(np.linspace(0.05, 0.15, 10, endpoint=False))
-x.extend(np.linspace(0.15, 0.35, 10, endpoint=False))
-x.extend(np.linspace(0.35, 0.75, 10, endpoint=False))
-x.extend(np.linspace(0.75, 1.00, 11))
-x = np.array(x)
+if mode == 'local':
+    # we need to properly discretize the chord direction of the airfoil, especially at the leading edge, where the curvature is stronger
+    x = []
+    x.extend(np.linspace(0.00, 0.05, 10, endpoint=False))
+    x.extend(np.linspace(0.05, 0.15, 10, endpoint=False))
+    x.extend(np.linspace(0.15, 0.35, 10, endpoint=False))
+    x.extend(np.linspace(0.35, 0.75, 10, endpoint=False))
+    x.extend(np.linspace(0.75, 1.00, 11))
+    x = np.array(x)
 
-# for the definition of the variables below, see https://en.wikipedia.org/wiki/NACA_airfoil#Equation_for_a_cambered_4-digit_NACA_airfoil
-m_hub = int(profile_hub[0]) / 100
-p_hub = int(profile_hub[1]) / 10
-t_hub = int(profile_hub[2] + profile_hub[3]) / 100
+    # for the definition of the variables below, see https://en.wikipedia.org/wiki/NACA_airfoil#Equation_for_a_cambered_4-digit_NACA_airfoil
+    m_hub = int(profile_hub[0]) / 100
+    p_hub = int(profile_hub[1]) / 10
+    t_hub = int(profile_hub[2] + profile_hub[3]) / 100
 
-m_tip = int(profile_tip[0]) / 100
-p_tip = int(profile_tip[1]) / 10
-t_tip = int(profile_tip[2] + profile_tip[3]) / 100
+    m_tip = int(profile_tip[0]) / 100
+    p_tip = int(profile_tip[1]) / 10
+    t_tip = int(profile_tip[2] + profile_tip[3]) / 100
+
 
 constrained = True
 document = 'Unnamed'
@@ -99,9 +101,12 @@ chords = np.linspace(chord_hub, chord_tip, n_span) # mm
 pitchs = np.linspace(0, pitch_tip, n_span) # degree
 delta_x = np.linspace(0, x_tip, n_span) # mm
 delta_y = np.linspace(0, y_tip, n_span) # mm
-m = np.linspace(m_hub, m_tip, n_span)
-p = np.linspace(p_hub, p_tip, n_span)
-t = np.linspace(t_hub, t_tip, n_span)
+
+if mode == 'local':
+    m = np.linspace(m_hub, m_tip, n_span)
+    p = np.linspace(p_hub, p_tip, n_span)
+    t = np.linspace(t_hub, t_tip, n_span)
+
 
 sketch_names = []
 for span_id, span_height in enumerate(spans):
@@ -116,10 +121,15 @@ for span_id, span_height in enumerate(spans):
         data = data.drop(data.columns[0], axis=1)
         data = data.astype(float)
 
+        # the lednicer dat files in http://airfoiltools.com are structured in such a way that the rows start at the leading edge,
+        # cover the suction (upper) side until the trailing edge,
+        # then come back to the leading edge and cover the pressure (lower) side until the trailing edge;
+        # data['x'][0] contains the number of points discretizing the suction (upper) side,
+        # whereas data['y'][0] contains the number of points discretizing the pressure (lower) side
         x_upper = np.array(data['x'][1:int(data['x'][0])+1])
+        y_upper = np.array(data['y'][1:int(data['x'][0])+1])
         x_lower = np.array(data['x'][int(data['x'][0])+1:])
-        y_upper = np.array(data['y'][1:int(data['y'][0])+1])
-        y_lower = np.array(data['y'][int(data['y'][0])+1:])
+        y_lower = np.array(data['y'][int(data['x'][0])+1:])
 
     sketch = 'Sketch' + str(span_id)
     sketch_names.append(sketch)
