@@ -89,7 +89,10 @@ if mode == 'local':
     t_tip = int(profile_tip[2] + profile_tip[3]) / 100
 
 
-constrained = True
+# some constrains are not mandatory for the successful creation of the solid;
+# I have not managed so far to find a way to create a fully constrained sketch for the airfoild profile in all cases
+constrained = False
+
 document = 'Unnamed'
 
 App.newDocument()
@@ -162,10 +165,11 @@ for span_id, span_height in enumerate(spans):
         points_upper.append(Part.Point(vectors_upper[i]))
         point_ids_upper.append(object_id)
         App.getDocument('Unnamed').getObject(sketch).addGeometry(points_upper[i], True) # the boolean flag is construction mode or not
+
         # constraining the points does not ensure the spline by these points will be constrained; I don't know why
-#        if constrained:
-#            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_upper[i],1,x_upper_chord[i]))
-#            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_upper[i],1,y_upper_chord[i]))
+        if constrained:
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_upper[i],1,x_upper_chord[i]))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_upper[i],1,y_upper_chord[i]))
 
     for i in range(len(x_lower)-1):
         # pressure side (lower points)
@@ -174,10 +178,11 @@ for span_id, span_height in enumerate(spans):
         points_lower.append(Part.Point(vectors_lower[i]))
         point_ids_lower.append(object_id)
         App.getDocument('Unnamed').getObject(sketch).addGeometry(points_lower[i], True) # the boolean flag is construction mode or not
+
         # constraining the points does not ensure the spline by these points will be constrained; I don't know why
-#        if constrained:
-#            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_lower[i],1,x_lower_chord[i]))
-#            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_lower[i],1,y_lower_chord[i]))
+        if constrained:
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_lower[i],1,x_lower_chord[i]))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_lower[i],1,y_lower_chord[i]))
 
 
     # We don't need to create the begin of chord (0,0) point, as it is automatically defined in FreeCAD and has id = -1
@@ -237,22 +242,22 @@ for span_id, span_height in enumerate(spans):
     del(_finalbsp_knots)
     del(_finalbsp_mults)
 
+    conList = []
+    for i in range(len(point_ids)):
+        conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids[i],1,spline_upper_id,i))
+
+        # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
+        # App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
+
+    App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
+    del conList
+
     if constrained:
-        conList = []
-        for i in range(len(point_ids)):
-            conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids[i],1,spline_upper_id,i))
-
-            # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
-            #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
-
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
-        del conList
-
-        # the first point of the upper spline is equivalent to the origin of the x,y system (0,0), which has id = -1 in FreeCAD
-        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', point_ids_upper[0], 1, -1, 1))
+        # the last point of the upper spline is equivalent to the origin of the x,y system (0,0), which has id = -1 in FreeCAD
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', point_ids_upper[-1], 1, -1, 1))
 
         # blocking the spline doesn't impede its trailing edge point from moving when creating the trailing edge; I don't know why
-        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
 
 
     #sys.exit()
@@ -261,7 +266,6 @@ for span_id, span_height in enumerate(spans):
     App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
 
     # let's retrieve the id of the newly created lower spline
-    object_id += (len(point_ids_upper) + 2 + len(point_ids_upper) + 1) # need to remove this line
     spline_counter = 0
     for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
         if 'BSplineCurve' in element.__class__.__name__:
