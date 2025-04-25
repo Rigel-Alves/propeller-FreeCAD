@@ -202,7 +202,7 @@ for span_id, span_height in enumerate(spans):
     # there will be a small corner in the root (begin of chord) point,
     # but I have not managed so far to successfully apply a tangent constraint on the region
 
-    #sys.exit()
+    # we need to create unified lists for the variables below, comprising the upper and lower parts of the airfoil
     vectors = []
     vectors.extend(vectors_upper)
     vectors.extend(vectors_lower)
@@ -213,6 +213,8 @@ for span_id, span_height in enumerate(spans):
     points.extend(point_ids_upper)
     points.extend(point_ids_lower)
 
+
+    #sys.exit()
     # suction side (upper spline)
     object_id += 1
     spline_upper_id = object_id
@@ -270,57 +272,23 @@ for span_id, span_height in enumerate(spans):
 
 
     # The trailing edge will be blunt, but some meshing software are able to automatically change it for round
-    if mode == 'local':
-        # sys.exit()
-        # trailing edge upper
-        # number of circles created after new spline = len(point_ids_upper) + 2
-        # number of points created after new spline = len(point_ids_upper)
-        object_id += (len(point_ids_upper) + 2 + len(point_ids_upper) + 1)
-        TE_upper_id = object_id
-        #TE_upper_line = Part.LineSegment(vectors_upper[-1],chord_end_vector)
-        TE_upper_line = Part.LineSegment(vectors_upper[0],App.Vector(x_upper_chord[-1], y_upper_chord[-1] - 0.1, 0))
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_upper_line,False)
+    #sys.exit()
+    # trailing edge upper
+    TE_upper_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry)
+    TE_upper_line = Part.LineSegment(vectors_upper[0],vectors_lower[-1])
+    App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_upper_line,False)
 
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_upper_id, 1, spline_upper_id, 1))
-        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_upper_id, 2, chord_end_id, 1))
+    constraintList = []
+    constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 1, spline_upper_id, 1))
+    constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 2, spline_lower_id, 2))
+    #constraintList.append(Sketcher.Constraint('Vertical', TE_upper_id)) # may not be always the case
+    App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+    del constraintList
 
-
-        # sys.exit()
-        # trailing edge lower
-        object_id += 1
-        TE_lower_id = object_id
-        #TE_lower_line = Part.LineSegment(vectors_lower[-1],chord_end_vector)
-        TE_lower_line = Part.LineSegment(vectors_lower[-1],App.Vector(x_lower_chord[-1], y_lower_chord[-1] + 0.1, 0))
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_lower_line,False)
-
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_lower_id, 1, spline_lower_id, 2))
-        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_lower_id, 2, chord_end_id, 1))
-
-        #sys.exit()
-        # join upper and lower parts of trailing edge
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', TE_upper_id, 2, TE_lower_id, 2))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Tangent',TE_upper_id,2,TE_lower_id,2))
-        App.getDocument('Unnamed').getObject(sketch).delConstraintOnPoint(TE_upper_id,2)
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Equal',TE_upper_id,TE_lower_id))
-
-    else:
-        #sys.exit()
-        # trailing edge upper
-        TE_upper_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry)
-        TE_upper_line = Part.LineSegment(vectors_upper[0],vectors_lower[-1])
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_upper_line,False)
-
-        constraintList = []
-        constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 1, spline_upper_id, 1))
-        constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 2, spline_lower_id, 2))
-        #constraintList.append(Sketcher.Constraint('Vertical', TE_upper_id)) # may not be always the case
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
-        del constraintList
-
-        #sys.exit()
-        # trailing edge lower
-        # split at mid point of line
-        App.getDocument('Unnamed').getObject(sketch).split(TE_upper_id, App.Vector((x_upper_chord[-1] + x_lower_chord[-1]) / 2, (y_upper_chord[-1] + y_lower_chord[-1]) / 2, 0))
+    #sys.exit()
+    # trailing edge lower
+    # split at mid point of line
+    App.getDocument('Unnamed').getObject(sketch).split(TE_upper_id, App.Vector((x_upper_chord[-1] + x_lower_chord[-1]) / 2, (y_upper_chord[-1] + y_lower_chord[-1]) / 2, 0))
 
 
     #sys.exit()
