@@ -95,7 +95,7 @@ if mode == 'local':
 
 # some constrains are not mandatory for the successful creation of the solid;
 # I have not managed so far to find a way to create a fully constrained sketch for the airfoild profile in all cases
-constrained = False
+constrained = True
 
 document = 'Unnamed'
 
@@ -172,8 +172,8 @@ for span_id, span_height in enumerate(spans):
 
         # constraining the points does not ensure the spline by these points will be constrained; I don't know why
         if constrained:
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_upper[i],1,x_upper_chord[i]))
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_upper[i],1,y_upper_chord[i]))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_upper[i],1,x_upper_chord[-i-1]))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_upper[i],1,y_upper_chord[-i-1]))
 
     for i in range(len(x_lower)-1):
         # pressure side (lower points)
@@ -185,8 +185,8 @@ for span_id, span_height in enumerate(spans):
 
         # constraining the points does not ensure the spline by these points will be constrained; I don't know why
         if constrained:
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_lower[i],1,x_lower_chord[i]))
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_lower[i],1,y_lower_chord[i]))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_lower[i],1,x_lower_chord[i+1]))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_lower[i],1,y_lower_chord[i+1]))
 
 
     # We don't need to create the begin of chord (0,0) point, as it is automatically defined in FreeCAD and has id = -1
@@ -246,6 +246,12 @@ for span_id, span_height in enumerate(spans):
                 TE_lower_id = id
                 break
         print("TE_lower_id =", TE_lower_id)
+
+        #sys.exit()
+        # now add constraints
+        if constrained:
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',-1,1,TE_line_id,2,TE_mid_x))
+            #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',-1,1,TE_line_id,2,TE_mid_y))
 
 
         # Draw circle
@@ -509,12 +515,9 @@ for span_id, span_height in enumerate(spans):
         App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
         del constraintList
 
-        if constrained:
-            # the last point of the upper spline is equivalent to the origin of the x,y system (0,0), which has id = -1 in FreeCAD
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', point_ids_upper[-1], 1, -1, 1))
-
-            # blocking the spline doesn't impede its trailing edge point from moving when creating the trailing edge; I don't know why
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
+#        if constrained:
+#            # blocking the spline doesn't impede its trailing edge point from moving when creating the trailing edge; I don't know why
+#            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
 
 
         #sys.exit()
@@ -549,7 +552,15 @@ for span_id, span_height in enumerate(spans):
         #sys.exit()
         # trailing edge lower
         # split at mid point of line
-        App.getDocument('Unnamed').getObject(sketch).split(TE_upper_id, App.Vector((x_upper_chord[-1] + x_lower_chord[-1]) / 2, (y_upper_chord[-1] + y_lower_chord[-1]) / 2, 0))
+        TE_lower_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry)
+        TE_mid_x = (x_upper_chord[-1] + x_lower_chord[-1]) / 2
+        TE_mid_y = (y_upper_chord[-1] + y_lower_chord[-1]) / 2
+        TE_mid_vector = App.Vector(TE_mid_x, TE_mid_y, 0)
+        App.getDocument('Unnamed').getObject(sketch).split(TE_upper_id, TE_mid_vector)
+
+        if constrained:
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',-1,1,TE_upper_id,2,TE_mid_x))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',-1,1,TE_upper_id,2,TE_mid_y))
 
 
     #sys.exit()
