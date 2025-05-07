@@ -368,13 +368,14 @@ for span_id, span_height in enumerate(spans):
         #print("TE_radius_upp_vector =", TE_radius_upp_vector)
 
 
+        #sys.exit()
         # we need to create unified lists for the variables below, comprising the upper, lower and potentialy TE parts of the airfoil
         vectors = []
+        vectors.append(TE_radius_mid_vector)
+        vectors.append(TE_radius_upp_vector)
         vectors.extend(vectors_upper)
         vectors.extend(vectors_lower)
         vectors.append(TE_radius_low_vector)
-        vectors.append(TE_radius_mid_vector)
-        vectors.append(TE_radius_upp_vector)
         print("len(vectors) =", len(vectors))
 
         # cannot do it this way, as the end points of TE_radiuses were not created as such
@@ -390,7 +391,6 @@ for span_id, span_height in enumerate(spans):
         #sys.exit()
         for i in range(len(vectors)):
             App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.Point(vectors[i]),True)
-        #App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.Point(vectors[0]),True)
 
         # add spline
         _finalbsp_poles = []
@@ -426,18 +426,19 @@ for span_id, span_height in enumerate(spans):
         conList = []
         for i in range(len(vectors)):
             conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',TE_radius_upp_id + 1 + i,1,spline_upper_id,i))
-        #conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',TE_radius_upp_id + 1 + len(vectors),1,spline_upper_id,len(vectors)))
         App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
         del conList
 
         #sys.exit()
         constraintList = []
+        constraintList.append(Sketcher.Constraint('Coincident', TE_radius_upp_id + 1, 1, TE_radius_mid_id    , 2))
+        constraintList.append(Sketcher.Constraint('Coincident', TE_radius_upp_id + 2, 1, TE_radius_upp_id    , 2))
         for i in range(len(point_ids)):
-            current_id = TE_radius_upp_id + 1 + i
+            current_id = TE_radius_upp_id + 3 + i
             constraintList.append(Sketcher.Constraint('Coincident', current_id, 1, point_ids[i], 1))
         constraintList.append(Sketcher.Constraint('Coincident', current_id + 1, 1, TE_radius_low_id    , 2))
-        constraintList.append(Sketcher.Constraint('Coincident', current_id + 2, 1, TE_radius_mid_id    , 2))
-        constraintList.append(Sketcher.Constraint('Coincident', current_id + 3, 1, TE_radius_upp_id    , 2))
+#        constraintList.append(Sketcher.Constraint('Coincident', current_id + 2, 1, TE_radius_mid_id    , 2))
+#        constraintList.append(Sketcher.Constraint('Coincident', current_id + 3, 1, TE_radius_upp_id    , 2))
         #constraintList.append(Sketcher.Constraint('Coincident', current_id + 4, 1, TE_radius_upp_id + 1, 1))
         App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
         del constraintList
