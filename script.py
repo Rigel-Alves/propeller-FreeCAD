@@ -440,8 +440,6 @@ for span_id, span_height in enumerate(spans):
     else:
         # Since some meshing software for CFD require the definition of the leading edge and the trailing edge, we will need to use two splines,
         # one for the suction side, one for the pressure side;
-        # there will be a small corner in the root (begin of chord) point,
-        # but I have not managed so far to successfully apply a tangent constraint on the region
 
         #sys.exit()
         # we need to create unified lists for the variables below, comprising the upper and lower parts of the airfoil
@@ -450,9 +448,10 @@ for span_id, span_height in enumerate(spans):
         vectors.extend(vectors_lower)
         print("len(vectors) =", len(vectors))
 
-#        points = []
-#        points.extend(points_upper)
-#        points.extend(points_lower)
+        points = []
+        points.extend(points_upper)
+        points.extend(points_lower)
+        print("len(points) =", len(points))
 
         point_ids = []
         point_ids.extend(point_ids_upper)
@@ -461,7 +460,7 @@ for span_id, span_height in enumerate(spans):
 
         #sys.exit()
         for i in range(len(vectors)):
-            App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.Point(vectors[i]),True)
+            App.getDocument('Unnamed').getObject(sketch).addGeometry(points[i],True)
 
         #sys.exit()
         # suction side (upper spline)
