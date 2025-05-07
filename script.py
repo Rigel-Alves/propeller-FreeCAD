@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+import math
 import pandas as pd
 
 # this is done automatically when running the script from inside FreeCAD
@@ -12,7 +13,7 @@ mode = 'local'
 
 # when using 'local' mode, 4-digit NACA profiles for the hub and tip:
 profile_hub = '0012'
-profile_tip = '2414'
+profile_tip = '6414'
 
 # when using 'internet' mode, airfoils to be used from http://airfoiltools.com
 # none airfoil can end at (1, 0), i.e. no sharp trailing edge
@@ -33,6 +34,9 @@ elif mode == 'internet':
 else:
     print('Unknown mode')
     sys.exit()
+
+# trailing edge type ('blunt', 'round')
+TE_type = 'blunt'
 
 ### END USER-DEFINED PARAMETERS ###
 
@@ -187,112 +191,366 @@ for span_id, span_height in enumerate(spans):
 
     # We don't need to create the begin of chord (0,0) point, as it is automatically defined in FreeCAD and has id = -1
 
-    #sys.exit()
     # end of chord (auxiliary point) # not being used for the moment
-#    object_id += 1
-#    chord_end_id = object_id
-#
-#    chord_end_vector = App.Vector(chords[span_id], 0, 0)
-#    chord_end_point = Part.Point(chord_end_vector)
-#
-#    App.getDocument('Unnamed').getObject(sketch).addGeometry(chord_end_point, True)
-#    if constrained:
-#        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',chord_end_id,1,chords[span_id]))
-#        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',chord_end_id,1,0))
-#        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('PointOnObject',chord_end_id,1,-1)) # the end of chord always lies in the x axis
+    #    object_id += 1
+    #    chord_end_id = object_id
+    #
+    #    chord_end_vector = App.Vector(chords[span_id], 0, 0)
+    #    chord_end_point = Part.Point(chord_end_vector)
+    #
+    #    App.getDocument('Unnamed').getObject(sketch).addGeometry(chord_end_point, True)
+    #    if constrained:
+    #        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',chord_end_id,1,chords[span_id]))
+    #        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',chord_end_id,1,0))
+    #        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('PointOnObject',chord_end_id,1,-1)) # the end of chord always lies in the x axis
 
 
-    # Since some meshing software for CFD require the definition of the leading edge and the trailing edge, we will need to use two splines,
-    # one for the suction side, one for the pressure side;
-    # there will be a small corner in the root (begin of chord) point,
-    # but I have not managed so far to successfully apply a tangent constraint on the region
+    if TE_type == 'round':
+        # Straight line between first and last point
+        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(vectors_upper[0], vectors_lower[-1]), True)
 
-    # we need to create unified lists for the variables below, comprising the upper and lower parts of the airfoil
-    vectors = []
-    vectors.extend(vectors_upper)
-    vectors.extend(vectors_lower)
-    points = []
-    points.extend(points_upper)
-    points.extend(points_lower)
-    point_ids = []
-    points.extend(point_ids_upper)
-    points.extend(point_ids_lower)
+        # get the id of the newly created line
+        #TE_line_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'LineSegment' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 1:
+                TE_line_id = id
+                break
+        print("TE_line_id =", TE_line_id)
 
-
-    #sys.exit()
-    # suction side (upper spline)
-    object_id += 1
-    spline_upper_id = object_id
-
-    _finalbsp_poles = []
-    _finalbsp_knots = []
-    _finalbsp_mults = []
-
-    spline_upper = Part.BSplineCurve()
-    spline_upper.interpolate(vectors, PeriodicFlag=False)
-    spline_upper.increaseDegree(3)
-
-    _finalbsp_poles.extend(spline_upper.getPoles())
-    _finalbsp_knots.extend(spline_upper.getKnots())
-    _finalbsp_mults.extend(spline_upper.getMultiplicities())
-
-    App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.BSplineCurve(_finalbsp_poles,_finalbsp_mults,_finalbsp_knots,False,3,None,False),False)
-
-    del(_finalbsp_poles)
-    del(_finalbsp_knots)
-    del(_finalbsp_mults)
-
-    conList = []
-    for i in range(len(point_ids)):
-        conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids[i],1,spline_upper_id,i))
-
-        # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
-        # App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
-
-    App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
-    del conList
-
-    if constrained:
-        # the last point of the upper spline is equivalent to the origin of the x,y system (0,0), which has id = -1 in FreeCAD
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', point_ids_upper[-1], 1, -1, 1))
-
-        # blocking the spline doesn't impede its trailing edge point from moving when creating the trailing edge; I don't know why
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
+        # now add constraints
+        constraintList = []
+        constraintList.append(Sketcher.Constraint('Coincident', TE_line_id, 1, point_ids_upper[ 0], 1))
+        constraintList.append(Sketcher.Constraint('Coincident', TE_line_id, 2, point_ids_lower[-1], 1))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        del constraintList
 
 
-    #sys.exit()
-    # pressure side (lower spline)
-    # split at point (0,0), which must be part of the airfoil profile
-    App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
+        # Split newly created line
+        TE_mid_x = (x_upper_chord[-1] + x_lower_chord[-1]) / 2
+        TE_mid_y = (y_upper_chord[-1] + y_lower_chord[-1]) / 2
+        TE_mid_vector = App.Vector(TE_mid_x, TE_mid_y, 0)
+        App.getDocument('Unnamed').getObject(sketch).split(TE_line_id, TE_mid_vector)
 
-    # let's retrieve the id of the newly created lower spline
-    spline_counter = 0
-    for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
-        if 'BSplineCurve' in element.__class__.__name__:
-            spline_counter += 1
-        if spline_counter == 2:
-            spline_lower_id = id
-            break
+        # get id
+        #TE_lower_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'LineSegment' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 2:
+                TE_lower_id = id
+                break
+        print("TE_lower_id =", TE_lower_id)
 
 
-    # The trailing edge will be blunt, but some meshing software are able to automatically change it for round
-    #sys.exit()
-    # trailing edge upper
-    TE_upper_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry)
-    TE_upper_line = Part.LineSegment(vectors_upper[0],vectors_lower[-1])
-    App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_upper_line,False)
+        # Draw circle
+        circle = Part.Circle(TE_mid_vector, App.Vector(0.000000, 0.000000, 1.000000), 0.428400)
+        arcOfCircle = Part.ArcOfCircle(circle , 4.712389, 7.853982)
+        App.getDocument('Unnamed').getObject(sketch).addGeometry(arcOfCircle,True)
 
-    constraintList = []
-    constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 1, spline_upper_id, 1))
-    constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 2, spline_lower_id, 2))
-    #constraintList.append(Sketcher.Constraint('Vertical', TE_upper_id)) # may not be always the case
-    App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
-    del constraintList
+        # get id
+        #TE_arc_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'ArcOfCircle' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 1:
+                TE_arc_id = id
+                break
+        print("TE_arc_id =", TE_arc_id)
 
-    #sys.exit()
-    # trailing edge lower
-    # split at mid point of line
-    App.getDocument('Unnamed').getObject(sketch).split(TE_upper_id, App.Vector((x_upper_chord[-1] + x_lower_chord[-1]) / 2, (y_upper_chord[-1] + y_lower_chord[-1]) / 2, 0))
+        # now add constraints
+        constraintList = []
+        constraintList.append(Sketcher.Constraint('Coincident', TE_arc_id, 3, TE_line_id         , 2))
+        constraintList.append(Sketcher.Constraint('Coincident', TE_arc_id, 1, point_ids_lower[-1], 1))
+        constraintList.append(Sketcher.Constraint('Coincident', TE_arc_id, 2, point_ids_upper[ 0], 1))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        del constraintList
+
+
+        #sys.exit()
+        # Add TE_radius_low
+        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y - 0.1, 0.000000)), True)
+
+        # get id
+        #TE_radius_low_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'LineSegment' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 3:
+                TE_radius_low_id = id
+                break
+        print("TE_radius_low_id =", TE_radius_low_id)
+
+        # now add constraints
+        constraintList = []
+        constraintList.append(Sketcher.Constraint('Coincident'   , TE_radius_low_id, 1, TE_line_id, 2))
+        constraintList.append(Sketcher.Constraint('PointOnObject', TE_radius_low_id, 2, TE_arc_id    ))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        del constraintList
+
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_lower_id,1,TE_radius_low_id,1,math.radians(45)))
+
+        # get vector of end point (which lies on the arc)
+        TE_radius_low_vector = App.getDocument('Unnamed').getObject(sketch).Geometry[TE_radius_low_id].EndPoint
+        #print("TE_radius_low_vector =", TE_radius_low_vector)
+
+
+        # Add TE_radius_mid
+        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y, 0.000000)), True)
+
+        # get id
+        #TE_radius_low_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'LineSegment' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 4:
+                TE_radius_mid_id = id
+                break
+        print("TE_radius_mid_id =", TE_radius_mid_id)
+
+        # now add constraints
+        constraintList = []
+        constraintList.append(Sketcher.Constraint('Coincident'   , TE_radius_mid_id, 1, TE_line_id, 2))
+        constraintList.append(Sketcher.Constraint('PointOnObject', TE_radius_mid_id, 2, TE_arc_id    ))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        del constraintList
+
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_radius_low_id,1,TE_radius_mid_id,1,math.radians(45)))
+
+        # get vector of end point (which lies on the arc)
+        TE_radius_mid_vector = App.getDocument('Unnamed').getObject(sketch).Geometry[TE_radius_mid_id].EndPoint
+        #print("TE_radius_mid_vector =", TE_radius_mid_vector)
+
+
+        # Add TE_radius_upp
+        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y + 0.1, 0.000000)), True)
+
+        # get id
+        #TE_radius_upp_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'LineSegment' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 5:
+                TE_radius_upp_id = id
+                break
+        print("TE_radius_upp_id =", TE_radius_upp_id)
+
+        # now add constraints
+        constraintList = []
+        constraintList.append(Sketcher.Constraint('Coincident'   , TE_radius_upp_id, 1, TE_line_id, 2))
+        constraintList.append(Sketcher.Constraint('PointOnObject', TE_radius_upp_id, 2, TE_arc_id    ))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        del constraintList
+
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_radius_mid_id,1,TE_radius_upp_id,1,math.radians(45)))
+
+        # get vector of end point (which lies on the arc)
+        TE_radius_upp_vector = App.getDocument('Unnamed').getObject(sketch).Geometry[TE_radius_upp_id].EndPoint
+        #print("TE_radius_upp_vector =", TE_radius_upp_vector)
+
+
+        # we need to create unified lists for the variables below, comprising the upper, lower and potentialy TE parts of the airfoil
+        vectors = []
+        vectors.extend(vectors_upper)
+        vectors.extend(vectors_lower)
+        vectors.append(TE_radius_low_vector)
+        vectors.append(TE_radius_mid_vector)
+        vectors.append(TE_radius_upp_vector)
+        print("len(vectors) =", len(vectors))
+
+        # cannot do it this way, as the end points of TE_radiuses were not created as such
+#        points = []
+#        points.extend(points_upper)
+#        points.extend(points_lower)
+
+        point_ids = []
+        point_ids.extend(point_ids_upper)
+        point_ids.extend(point_ids_lower)
+        print("len(point_ids) =", len(point_ids))
+
+        #sys.exit()
+        for i in range(len(vectors)):
+            App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.Point(vectors[i]),True)
+        #App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.Point(vectors[0]),True)
+
+        # add spline
+        _finalbsp_poles = []
+        _finalbsp_knots = []
+        _finalbsp_mults = []
+
+        spline_upper = Part.BSplineCurve()
+        spline_upper.interpolate(vectors, PeriodicFlag=True)
+        spline_upper.increaseDegree(3)
+
+        _finalbsp_poles.extend(spline_upper.getPoles())
+        _finalbsp_knots.extend(spline_upper.getKnots())
+        _finalbsp_mults.extend(spline_upper.getMultiplicities())
+
+        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.BSplineCurve(_finalbsp_poles,_finalbsp_mults,_finalbsp_knots,True,3,None,False),False)
+
+        del(_finalbsp_poles)
+        del(_finalbsp_knots)
+        del(_finalbsp_mults)
+
+        # get id
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'BSplineCurve' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 1:
+                spline_upper_id = id
+                break
+        print("spline_upper_id =", spline_upper_id)
+
+        # now add constraints
+        conList = []
+        for i in range(len(vectors)):
+            conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',TE_radius_upp_id + 1 + i,1,spline_upper_id,i))
+        #conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',TE_radius_upp_id + 1 + len(vectors),1,spline_upper_id,len(vectors)))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
+        del conList
+
+        #sys.exit()
+        constraintList = []
+        for i in range(len(point_ids)):
+            current_id = TE_radius_upp_id + 1 + i
+            constraintList.append(Sketcher.Constraint('Coincident', current_id, 1, point_ids[i], 1))
+        constraintList.append(Sketcher.Constraint('Coincident', current_id + 1, 1, TE_radius_low_id    , 2))
+        constraintList.append(Sketcher.Constraint('Coincident', current_id + 2, 1, TE_radius_mid_id    , 2))
+        constraintList.append(Sketcher.Constraint('Coincident', current_id + 3, 1, TE_radius_upp_id    , 2))
+        #constraintList.append(Sketcher.Constraint('Coincident', current_id + 4, 1, TE_radius_upp_id + 1, 1))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        del constraintList
+
+    # blunt trailing edge
+    else:
+        # Since some meshing software for CFD require the definition of the leading edge and the trailing edge, we will need to use two splines,
+        # one for the suction side, one for the pressure side;
+        # there will be a small corner in the root (begin of chord) point,
+        # but I have not managed so far to successfully apply a tangent constraint on the region
+
+        #sys.exit()
+        # we need to create unified lists for the variables below, comprising the upper and lower parts of the airfoil
+        vectors = []
+        vectors.extend(vectors_upper)
+        vectors.extend(vectors_lower)
+        print("len(vectors) =", len(vectors))
+
+#        points = []
+#        points.extend(points_upper)
+#        points.extend(points_lower)
+
+        point_ids = []
+        point_ids.extend(point_ids_upper)
+        point_ids.extend(point_ids_lower)
+        print("len(point_ids) =", len(point_ids))
+
+        #sys.exit()
+        for i in range(len(vectors)):
+            App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.Point(vectors[i]),True)
+
+        #sys.exit()
+        # suction side (upper spline)
+        _finalbsp_poles = []
+        _finalbsp_knots = []
+        _finalbsp_mults = []
+
+        spline_upper = Part.BSplineCurve()
+        spline_upper.interpolate(vectors, PeriodicFlag=False)
+        spline_upper.increaseDegree(3)
+
+        _finalbsp_poles.extend(spline_upper.getPoles())
+        _finalbsp_knots.extend(spline_upper.getKnots())
+        _finalbsp_mults.extend(spline_upper.getMultiplicities())
+
+        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.BSplineCurve(_finalbsp_poles,_finalbsp_mults,_finalbsp_knots,False,3,None,False),False)
+
+        del(_finalbsp_poles)
+        del(_finalbsp_knots)
+        del(_finalbsp_mults)
+
+        # get id
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'BSplineCurve' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 1:
+                spline_upper_id = id
+                break
+        print("spline_upper_id =", spline_upper_id)
+
+        conList = []
+        for i in range(len(point_ids)):
+            conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',len(point_ids) + i,1,spline_upper_id,i))
+
+            # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
+            # App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
+
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
+        del conList
+
+        constraintList = []
+        for i in range(len(point_ids)):
+            constraintList.append(Sketcher.Constraint('Coincident', len(point_ids) + i, 1, point_ids[i], 1))
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        del constraintList
+
+        if constrained:
+            # the last point of the upper spline is equivalent to the origin of the x,y system (0,0), which has id = -1 in FreeCAD
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Coincident', point_ids_upper[-1], 1, -1, 1))
+
+            # blocking the spline doesn't impede its trailing edge point from moving when creating the trailing edge; I don't know why
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
+
+
+        #sys.exit()
+        # pressure side (lower spline)
+        # split at point (0,0), which must be part of the airfoil profile
+        App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
+
+        # let's retrieve the id of the newly created lower spline
+        spline_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            if 'BSplineCurve' in element.__class__.__name__:
+                spline_counter += 1
+            if spline_counter == 2:
+                spline_lower_id = id
+                break
+
+
+        # The trailing edge will be blunt, but some meshing software are able to automatically change it for round
+        #sys.exit()
+        # trailing edge upper
+        TE_upper_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry)
+        TE_upper_line = Part.LineSegment(vectors_upper[0],vectors_lower[-1])
+        App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_upper_line,False)
+
+        constraintList = []
+        constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 1, spline_upper_id, 1))
+        constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 2, spline_lower_id, 2))
+        #constraintList.append(Sketcher.Constraint('Vertical', TE_upper_id)) # may not be always the case
+        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        del constraintList
+
+        #sys.exit()
+        # trailing edge lower
+        # split at mid point of line
+        App.getDocument('Unnamed').getObject(sketch).split(TE_upper_id, App.Vector((x_upper_chord[-1] + x_lower_chord[-1]) / 2, (y_upper_chord[-1] + y_lower_chord[-1]) / 2, 0))
 
 
     #sys.exit()
