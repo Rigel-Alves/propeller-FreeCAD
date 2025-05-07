@@ -38,6 +38,10 @@ else:
 # trailing edge type ('blunt', 'round')
 TE_type = 'blunt'
 
+# discretization of the trailing edge
+if TE_type == 'round':
+    n_intervals_TE = 6 # should be an even number, as to ensure a mid point for the trailing edge line
+
 ### END USER-DEFINED PARAMETERS ###
 
 
@@ -281,107 +285,56 @@ for span_id, span_height in enumerate(spans):
 
 
         #sys.exit()
-        # Add TE_radius_low
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y - 0.1, 0.000000)), True)
+        # create points for the circular trailing edge
+        TE_radius_ids = []
+        TE_radius_vectors = []
+        for temp_line_id in range(1, n_intervals_TE):
+            App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y - 0.1, 0.000000)), True)
 
-        # get id
-        #TE_radius_low_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
-        object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
-            #print(id, element, element.__class__.__name__)
-            if 'LineSegment' in element.__class__.__name__:
-                object_counter += 1
-            if object_counter == 3:
-                TE_radius_low_id = id
-                break
-        print("TE_radius_low_id =", TE_radius_low_id)
+            # get id
+            object_counter = 0
+            for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+                #print(id, element, element.__class__.__name__)
+                if 'LineSegment' in element.__class__.__name__:
+                    object_counter += 1
+                if object_counter == 2 + temp_line_id:
+                    TE_radius_ids.append(id)
+                    break
+            print("temp_line_id =", temp_line_id, "TE_radius_ids =", TE_radius_ids[temp_line_id - 1])
 
-        # now add constraints
-        constraintList = []
-        constraintList.append(Sketcher.Constraint('Coincident'   , TE_radius_low_id, 1, TE_line_id, 2))
-        constraintList.append(Sketcher.Constraint('PointOnObject', TE_radius_low_id, 2, TE_arc_id    ))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
-        del constraintList
+            # now add constraints
+            constraintList = []
+            constraintList.append(Sketcher.Constraint('Coincident'   , TE_radius_ids[temp_line_id - 1], 1, TE_line_id, 2))
+            constraintList.append(Sketcher.Constraint('PointOnObject', TE_radius_ids[temp_line_id - 1], 2, TE_arc_id    ))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+            del constraintList
 
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_lower_id,1,TE_radius_low_id,1,math.radians(45)))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_lower_id,1,TE_radius_ids[temp_line_id - 1],1,math.radians(180/n_intervals_TE*temp_line_id)))
 
-        # get vector of end point (which lies on the arc)
-        TE_radius_low_vector = App.getDocument('Unnamed').getObject(sketch).Geometry[TE_radius_low_id].EndPoint
-        #print("TE_radius_low_vector =", TE_radius_low_vector)
-
-
-        # Add TE_radius_mid
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y, 0.000000)), True)
-
-        # get id
-        #TE_radius_low_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
-        object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
-            #print(id, element, element.__class__.__name__)
-            if 'LineSegment' in element.__class__.__name__:
-                object_counter += 1
-            if object_counter == 4:
-                TE_radius_mid_id = id
-                break
-        print("TE_radius_mid_id =", TE_radius_mid_id)
-
-        # now add constraints
-        constraintList = []
-        constraintList.append(Sketcher.Constraint('Coincident'   , TE_radius_mid_id, 1, TE_line_id, 2))
-        constraintList.append(Sketcher.Constraint('PointOnObject', TE_radius_mid_id, 2, TE_arc_id    ))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
-        del constraintList
-
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_radius_low_id,1,TE_radius_mid_id,1,math.radians(45)))
-
-        # get vector of end point (which lies on the arc)
-        TE_radius_mid_vector = App.getDocument('Unnamed').getObject(sketch).Geometry[TE_radius_mid_id].EndPoint
-        #print("TE_radius_mid_vector =", TE_radius_mid_vector)
-
-
-        # Add TE_radius_upp
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y + 0.1, 0.000000)), True)
-
-        # get id
-        #TE_radius_upp_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
-        object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
-            #print(id, element, element.__class__.__name__)
-            if 'LineSegment' in element.__class__.__name__:
-                object_counter += 1
-            if object_counter == 5:
-                TE_radius_upp_id = id
-                break
-        print("TE_radius_upp_id =", TE_radius_upp_id)
-
-        # now add constraints
-        constraintList = []
-        constraintList.append(Sketcher.Constraint('Coincident'   , TE_radius_upp_id, 1, TE_line_id, 2))
-        constraintList.append(Sketcher.Constraint('PointOnObject', TE_radius_upp_id, 2, TE_arc_id    ))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
-        del constraintList
-
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_radius_mid_id,1,TE_radius_upp_id,1,math.radians(45)))
-
-        # get vector of end point (which lies on the arc)
-        TE_radius_upp_vector = App.getDocument('Unnamed').getObject(sketch).Geometry[TE_radius_upp_id].EndPoint
-        #print("TE_radius_upp_vector =", TE_radius_upp_vector)
+            # get vector of end point (which lies on the arc)
+            TE_radius_vectors.append(App.getDocument('Unnamed').getObject(sketch).Geometry[TE_radius_ids[temp_line_id - 1]].EndPoint)
 
 
         #sys.exit()
-        # we need to create unified lists for the variables below, comprising the upper, lower and potentialy TE parts of the airfoil
+        # we need to create unified lists for the variables below, comprising the upper, lower and TE parts of the airfoil
+        # they start by the trailing edge point and go counter clockwise across the airfoil
         vectors = []
-        vectors.append(TE_radius_mid_vector)
-        vectors.append(TE_radius_upp_vector)
+        for i in range(int(len(TE_radius_vectors)/2), len(TE_radius_vectors)):
+            vectors.append(TE_radius_vectors[i])
         vectors.extend(vectors_upper)
         vectors.extend(vectors_lower)
-        vectors.append(TE_radius_low_vector)
+        for i in range(int(len(TE_radius_vectors)/2)):
+            vectors.append(TE_radius_vectors[i])
         print("len(vectors) =", len(vectors))
 
-        # cannot do it this way, as the end points of TE_radiuses were not created as such
-#        points = []
-#        points.extend(points_upper)
-#        points.extend(points_lower)
+        points = []
+        for i in range(int(len(TE_radius_vectors)/2), len(TE_radius_vectors)):
+            points.append(Part.Point(TE_radius_vectors[i]))
+        points.extend(points_upper)
+        points.extend(points_lower)
+        for i in range(int(len(TE_radius_vectors)/2)):
+            points.append(Part.Point(TE_radius_vectors[i]))
+        print("len(points) =", len(points))
 
         point_ids = []
         point_ids.extend(point_ids_upper)
@@ -390,7 +343,7 @@ for span_id, span_height in enumerate(spans):
 
         #sys.exit()
         for i in range(len(vectors)):
-            App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.Point(vectors[i]),True)
+            App.getDocument('Unnamed').getObject(sketch).addGeometry(points[i],True)
 
         # add spline
         _finalbsp_poles = []
@@ -425,23 +378,24 @@ for span_id, span_height in enumerate(spans):
         # now add constraints
         conList = []
         for i in range(len(vectors)):
-            conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',TE_radius_upp_id + 1 + i,1,spline_upper_id,i))
+            conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',TE_radius_ids[-1] + 1 + i,1,spline_upper_id,i))
         App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
         del conList
 
-        #sys.exit()
         constraintList = []
-        constraintList.append(Sketcher.Constraint('Coincident', TE_radius_upp_id + 1, 1, TE_radius_mid_id    , 2))
-        constraintList.append(Sketcher.Constraint('Coincident', TE_radius_upp_id + 2, 1, TE_radius_upp_id    , 2))
+        current_id = TE_radius_ids[-1]
+        for i in range(int(len(TE_radius_vectors)/2), len(TE_radius_vectors)):
+            current_id += 1
+            constraintList.append(Sketcher.Constraint('Coincident', current_id, 1, TE_radius_ids[i], 2))
         for i in range(len(point_ids)):
-            current_id = TE_radius_upp_id + 3 + i
+            current_id += 1
             constraintList.append(Sketcher.Constraint('Coincident', current_id, 1, point_ids[i], 1))
-        constraintList.append(Sketcher.Constraint('Coincident', current_id + 1, 1, TE_radius_low_id    , 2))
-#        constraintList.append(Sketcher.Constraint('Coincident', current_id + 2, 1, TE_radius_mid_id    , 2))
-#        constraintList.append(Sketcher.Constraint('Coincident', current_id + 3, 1, TE_radius_upp_id    , 2))
-        #constraintList.append(Sketcher.Constraint('Coincident', current_id + 4, 1, TE_radius_upp_id + 1, 1))
+        for i in range(int(len(TE_radius_vectors)/2)):
+            current_id += 1
+            constraintList.append(Sketcher.Constraint('Coincident', current_id, 1, TE_radius_ids[i], 2))
         App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
         del constraintList
+
 
     # blunt trailing edge
     else:
