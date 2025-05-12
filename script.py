@@ -40,9 +40,11 @@ TE_type = 'blunt'
 
 # discretization of the trailing edge
 if TE_type == 'round':
-    n_intervals_TE = 6 # should be an even number, as to ensure a mid point for the trailing edge line
+    n_intervals_TE = 6 # should be an even number, as to ensure a mid point for the trailing edge line, and > 4
 
 ### END USER-DEFINED PARAMETERS ###
+
+debug = False
 
 
 # for the definition of the equations below, see https://en.wikipedia.org/wiki/NACA_airfoil#Equation_for_a_cambered_4-digit_NACA_airfoil
@@ -84,6 +86,7 @@ if mode == 'local':
     x.extend(np.linspace(0.05, 0.15, 4, endpoint=False))
     x.extend(np.linspace(0.15, 0.35, 2, endpoint=False))
     x.extend(np.linspace(0.35, 0.75, 2, endpoint=False))
+    #x.extend(np.linspace(0.75, 0.99, 2, endpoint=False))
     x.extend(np.linspace(0.75, 1.00, 3))
     x = np.array(x)
 
@@ -223,7 +226,8 @@ for span_id, span_height in enumerate(spans):
             if object_counter == 1:
                 TE_line_id = id
                 break
-        print("TE_line_id =", TE_line_id)
+        if debug:
+            print("TE_line_id =", TE_line_id)
 
         # now add constraints
         constraintList = []
@@ -249,7 +253,8 @@ for span_id, span_height in enumerate(spans):
             if object_counter == 2:
                 TE_lower_id = id
                 break
-        print("TE_lower_id =", TE_lower_id)
+        if debug:
+            print("TE_lower_id =", TE_lower_id)
 
         #sys.exit()
         # now add constraints
@@ -273,7 +278,8 @@ for span_id, span_height in enumerate(spans):
             if object_counter == 1:
                 TE_arc_id = id
                 break
-        print("TE_arc_id =", TE_arc_id)
+        if debug:
+            print("TE_arc_id =", TE_arc_id)
 
         # now add constraints
         constraintList = []
@@ -300,7 +306,8 @@ for span_id, span_height in enumerate(spans):
                 if object_counter == 2 + temp_line_id:
                     TE_radius_ids.append(id)
                     break
-            print("temp_line_id =", temp_line_id, "TE_radius_ids =", TE_radius_ids[temp_line_id - 1])
+            if debug:
+                print("temp_line_id =", temp_line_id, "TE_radius_ids =", TE_radius_ids[temp_line_id - 1])
 
             # now add constraints
             constraintList = []
@@ -325,7 +332,8 @@ for span_id, span_height in enumerate(spans):
         vectors.extend(vectors_lower)
         for i in range(int(len(TE_radius_vectors)/2)):
             vectors.append(TE_radius_vectors[i])
-        print("len(vectors) =", len(vectors))
+        if debug:
+            print("len(vectors) =", len(vectors))
 
         points = []
         for i in range(int(len(TE_radius_vectors)/2), len(TE_radius_vectors)):
@@ -334,12 +342,14 @@ for span_id, span_height in enumerate(spans):
         points.extend(points_lower)
         for i in range(int(len(TE_radius_vectors)/2)):
             points.append(Part.Point(TE_radius_vectors[i]))
-        print("len(points) =", len(points))
+        if debug:
+            print("len(points) =", len(points))
 
         point_ids = []
         point_ids.extend(point_ids_upper)
         point_ids.extend(point_ids_lower)
-        print("len(point_ids) =", len(point_ids))
+        if debug:
+            print("len(point_ids) =", len(point_ids))
 
         #sys.exit()
         for i in range(len(vectors)):
@@ -373,7 +383,8 @@ for span_id, span_height in enumerate(spans):
             if object_counter == 1:
                 spline_upper_id = id
                 break
-        print("spline_upper_id =", spline_upper_id)
+        if debug:
+            print("spline_upper_id =", spline_upper_id)
 
         # now add constraints
         conList = []
@@ -401,6 +412,22 @@ for span_id, span_height in enumerate(spans):
         App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
         App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,TE_radius_vectors[int(len(TE_radius_vectors)/2)])
 
+        # get id
+        object_counter = 0
+        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            #print(id, element, element.__class__.__name__)
+            if 'BSplineCurve' in element.__class__.__name__:
+                object_counter += 1
+            if object_counter == 2:
+                spline_lower_id = id
+                break
+        if debug:
+            print("spline_lower_id =", spline_lower_id)
+
+        if constrained:
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
+            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_lower_id))
+
 
     # blunt trailing edge
     else:
@@ -412,17 +439,20 @@ for span_id, span_height in enumerate(spans):
         vectors = []
         vectors.extend(vectors_upper)
         vectors.extend(vectors_lower)
-        print("len(vectors) =", len(vectors))
+        if debug:
+            print("len(vectors) =", len(vectors))
 
         points = []
         points.extend(points_upper)
         points.extend(points_lower)
-        print("len(points) =", len(points))
+        if debug:
+            print("len(points) =", len(points))
 
         point_ids = []
         point_ids.extend(point_ids_upper)
         point_ids.extend(point_ids_lower)
-        print("len(point_ids) =", len(point_ids))
+        if debug:
+            print("len(point_ids) =", len(point_ids))
 
         #sys.exit()
         for i in range(len(vectors)):
@@ -457,7 +487,8 @@ for span_id, span_height in enumerate(spans):
             if object_counter == 1:
                 spline_upper_id = id
                 break
-        print("spline_upper_id =", spline_upper_id)
+        if debug:
+            print("spline_upper_id =", spline_upper_id)
 
         conList = []
         for i in range(len(point_ids)):
@@ -493,6 +524,8 @@ for span_id, span_height in enumerate(spans):
             if spline_counter == 2:
                 spline_lower_id = id
                 break
+        if debug:
+            print("spline_lower_id =", spline_lower_id)
 
 
         # The trailing edge will be blunt, but some meshing software are able to automatically change it for round
