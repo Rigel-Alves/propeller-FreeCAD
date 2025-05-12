@@ -397,6 +397,11 @@ for span_id, span_height in enumerate(spans):
         del constraintList
 
 
+        # split spline at LE and TE
+        App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
+        App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,TE_radius_vectors[int(len(TE_radius_vectors)/2)])
+
+
     # blunt trailing edge
     else:
         # Since some meshing software for CFD require the definition of the leading edge and the trailing edge, we will need to use two splines,
