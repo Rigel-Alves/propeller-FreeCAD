@@ -42,6 +42,9 @@ TE_type = 'blunt'
 if TE_type == 'round':
     n_intervals_TE = 6 # should be an even number, as to ensure a mid point for the trailing edge line, and > 4
 
+# name for the FreeCAD document
+document = 'propeller'
+
 ### END USER-DEFINED PARAMETERS ###
 
 debug = False
@@ -101,12 +104,10 @@ if mode == 'local':
 
 
 # some constrains are not mandatory for the successful creation of the solid;
-# I have not managed so far to find a way to create a fully constrained sketch for the airfoild profile in all cases
+# I have not managed so far to find a way to create a fully constrained sketch for the airfoil profile in all cases
 constrained = True
 
-document = 'Unnamed'
-
-App.newDocument()
+App.newDocument(document)
 App.activeDocument().addObject('PartDesign::Body','Body')
 App.ActiveDocument.getObject('Body').Label = 'Body'
 
@@ -148,10 +149,10 @@ for span_id, span_height in enumerate(spans):
     sketch = 'Sketch' + str(span_id)
     sketch_names.append(sketch)
 
-    App.getDocument('Unnamed').getObject('Body').newObject('Sketcher::SketchObject',sketch)
-    App.getDocument('Unnamed').getObject(sketch).AttachmentSupport = (App.getDocument('Unnamed').getObject('XY_Plane'),[''])
-    App.getDocument('Unnamed').getObject(sketch).MapMode = 'FlatFace'
-    App.getDocument('Unnamed').getObject(sketch).AttachmentOffset = App.Placement(App.Vector(delta_x[span_id],delta_y[span_id],span_height),App.Rotation(App.Vector(0,0,1),pitchs[span_id]))
+    App.getDocument(document).getObject('Body').newObject('Sketcher::SketchObject',sketch)
+    App.getDocument(document).getObject(sketch).AttachmentSupport = (App.getDocument(document).getObject('XY_Plane'),[''])
+    App.getDocument(document).getObject(sketch).MapMode = 'FlatFace'
+    App.getDocument(document).getObject(sketch).AttachmentOffset = App.Placement(App.Vector(delta_x[span_id],delta_y[span_id],span_height),App.Rotation(App.Vector(0,0,1),pitchs[span_id]))
 
     x_upper_chord = x_upper*chords[span_id]
     x_lower_chord = x_lower*chords[span_id]
@@ -175,12 +176,12 @@ for span_id, span_height in enumerate(spans):
         vectors_upper.append(App.Vector(x_upper_chord[-i-1], y_upper_chord[-i-1], 0))
         points_upper.append(Part.Point(vectors_upper[i]))
         point_ids_upper.append(object_id)
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(points_upper[i], True) # the boolean flag is construction mode or not
+        App.getDocument(document).getObject(sketch).addGeometry(points_upper[i], True) # the boolean flag is construction mode or not
 
         # constraining the points does not ensure the spline by these points will be constrained; I don't know why
         if constrained:
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_upper[i],1,x_upper_chord[-i-1]))
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_upper[i],1,y_upper_chord[-i-1]))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_upper[i],1,x_upper_chord[-i-1]))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_upper[i],1,y_upper_chord[-i-1]))
 
     for i in range(len(x_lower)-1):
         # pressure side (lower points)
@@ -188,12 +189,12 @@ for span_id, span_height in enumerate(spans):
         vectors_lower.append(App.Vector(x_lower_chord[i+1], y_lower_chord[i+1], 0))
         points_lower.append(Part.Point(vectors_lower[i]))
         point_ids_lower.append(object_id)
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(points_lower[i], True) # the boolean flag is construction mode or not
+        App.getDocument(document).getObject(sketch).addGeometry(points_lower[i], True) # the boolean flag is construction mode or not
 
         # constraining the points does not ensure the spline by these points will be constrained; I don't know why
         if constrained:
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_lower[i],1,x_lower_chord[i+1]))
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_lower[i],1,y_lower_chord[i+1]))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',point_ids_lower[i],1,x_lower_chord[i+1]))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',point_ids_lower[i],1,y_lower_chord[i+1]))
 
 
     # We don't need to create the begin of chord (0,0) point, as it is automatically defined in FreeCAD and has id = -1
@@ -205,21 +206,21 @@ for span_id, span_height in enumerate(spans):
     #    chord_end_vector = App.Vector(chords[span_id], 0, 0)
     #    chord_end_point = Part.Point(chord_end_vector)
     #
-    #    App.getDocument('Unnamed').getObject(sketch).addGeometry(chord_end_point, True)
+    #    App.getDocument(document).getObject(sketch).addGeometry(chord_end_point, True)
     #    if constrained:
-    #        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',chord_end_id,1,chords[span_id]))
-    #        #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',chord_end_id,1,0))
-    #        App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('PointOnObject',chord_end_id,1,-1)) # the end of chord always lies in the x axis
+    #        App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',chord_end_id,1,chords[span_id]))
+    #        #App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',chord_end_id,1,0))
+    #        App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('PointOnObject',chord_end_id,1,-1)) # the end of chord always lies in the x axis
 
 
     if TE_type == 'round':
         # Straight line between first and last point
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(vectors_upper[0], vectors_lower[-1]), True)
+        App.getDocument(document).getObject(sketch).addGeometry(Part.LineSegment(vectors_upper[0], vectors_lower[-1]), True)
 
         # get the id of the newly created line
-        #TE_line_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        #TE_line_id = len(App.getDocument(document).getObject(sketch).Geometry) - 1
         object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+        for id, element in enumerate(App.getDocument(document).getObject(sketch).Geometry):
             #print(id, element, element.__class__.__name__)
             if 'LineSegment' in element.__class__.__name__:
                 object_counter += 1
@@ -233,7 +234,7 @@ for span_id, span_height in enumerate(spans):
         constraintList = []
         constraintList.append(Sketcher.Constraint('Coincident', TE_line_id, 1, point_ids_upper[ 0], 1))
         constraintList.append(Sketcher.Constraint('Coincident', TE_line_id, 2, point_ids_lower[-1], 1))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        App.getDocument(document).getObject(sketch).addConstraint(constraintList)
         del constraintList
 
 
@@ -241,12 +242,12 @@ for span_id, span_height in enumerate(spans):
         TE_mid_x = (x_upper_chord[-1] + x_lower_chord[-1]) / 2
         TE_mid_y = (y_upper_chord[-1] + y_lower_chord[-1]) / 2
         TE_mid_vector = App.Vector(TE_mid_x, TE_mid_y, 0)
-        App.getDocument('Unnamed').getObject(sketch).split(TE_line_id, TE_mid_vector)
+        App.getDocument(document).getObject(sketch).split(TE_line_id, TE_mid_vector)
 
         # get id
-        #TE_lower_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        #TE_lower_id = len(App.getDocument(document).getObject(sketch).Geometry) - 1
         object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+        for id, element in enumerate(App.getDocument(document).getObject(sketch).Geometry):
             #print(id, element, element.__class__.__name__)
             if 'LineSegment' in element.__class__.__name__:
                 object_counter += 1
@@ -259,19 +260,19 @@ for span_id, span_height in enumerate(spans):
         #sys.exit()
         # now add constraints
         if constrained:
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',-1,1,TE_line_id,2,TE_mid_x))
-            #App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',-1,1,TE_line_id,2,TE_mid_y))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',-1,1,TE_line_id,2,TE_mid_x))
+            #App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',-1,1,TE_line_id,2,TE_mid_y))
 
 
         # Draw circle
         circle = Part.Circle(TE_mid_vector, App.Vector(0.000000, 0.000000, 1.000000), 0.428400)
         arcOfCircle = Part.ArcOfCircle(circle , 4.712389, 7.853982)
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(arcOfCircle,True)
+        App.getDocument(document).getObject(sketch).addGeometry(arcOfCircle,True)
 
         # get id
-        #TE_arc_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry) - 1
+        #TE_arc_id = len(App.getDocument(document).getObject(sketch).Geometry) - 1
         object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+        for id, element in enumerate(App.getDocument(document).getObject(sketch).Geometry):
             #print(id, element, element.__class__.__name__)
             if 'ArcOfCircle' in element.__class__.__name__:
                 object_counter += 1
@@ -286,7 +287,7 @@ for span_id, span_height in enumerate(spans):
         constraintList.append(Sketcher.Constraint('Coincident', TE_arc_id, 3, TE_line_id         , 2))
         constraintList.append(Sketcher.Constraint('Coincident', TE_arc_id, 1, point_ids_lower[-1], 1))
         constraintList.append(Sketcher.Constraint('Coincident', TE_arc_id, 2, point_ids_upper[ 0], 1))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        App.getDocument(document).getObject(sketch).addConstraint(constraintList)
         del constraintList
 
 
@@ -295,11 +296,11 @@ for span_id, span_height in enumerate(spans):
         TE_radius_ids = []
         TE_radius_vectors = []
         for temp_line_id in range(1, n_intervals_TE):
-            App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y - 0.1, 0.000000)), True)
+            App.getDocument(document).getObject(sketch).addGeometry(Part.LineSegment(TE_mid_vector, App.Vector(TE_mid_x + 0.1, TE_mid_y - 0.1, 0.000000)), True)
 
             # get id
             object_counter = 0
-            for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+            for id, element in enumerate(App.getDocument(document).getObject(sketch).Geometry):
                 #print(id, element, element.__class__.__name__)
                 if 'LineSegment' in element.__class__.__name__:
                     object_counter += 1
@@ -313,13 +314,13 @@ for span_id, span_height in enumerate(spans):
             constraintList = []
             constraintList.append(Sketcher.Constraint('Coincident'   , TE_radius_ids[temp_line_id - 1], 1, TE_line_id, 2))
             constraintList.append(Sketcher.Constraint('PointOnObject', TE_radius_ids[temp_line_id - 1], 2, TE_arc_id    ))
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+            App.getDocument(document).getObject(sketch).addConstraint(constraintList)
             del constraintList
 
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_lower_id,1,TE_radius_ids[temp_line_id - 1],1,math.radians(180/n_intervals_TE*temp_line_id)))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('Angle',TE_lower_id,1,TE_radius_ids[temp_line_id - 1],1,math.radians(180/n_intervals_TE*temp_line_id)))
 
             # get vector of end point (which lies on the arc)
-            TE_radius_vectors.append(App.getDocument('Unnamed').getObject(sketch).Geometry[TE_radius_ids[temp_line_id - 1]].EndPoint)
+            TE_radius_vectors.append(App.getDocument(document).getObject(sketch).Geometry[TE_radius_ids[temp_line_id - 1]].EndPoint)
 
 
         #sys.exit()
@@ -353,7 +354,7 @@ for span_id, span_height in enumerate(spans):
 
         #sys.exit()
         for i in range(len(vectors)):
-            App.getDocument('Unnamed').getObject(sketch).addGeometry(points[i],True)
+            App.getDocument(document).getObject(sketch).addGeometry(points[i],True)
 
         # add spline
         _finalbsp_poles = []
@@ -368,7 +369,7 @@ for span_id, span_height in enumerate(spans):
         _finalbsp_knots.extend(spline_upper.getKnots())
         _finalbsp_mults.extend(spline_upper.getMultiplicities())
 
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.BSplineCurve(_finalbsp_poles,_finalbsp_mults,_finalbsp_knots,True,3,None,False),False)
+        App.getDocument(document).getObject(sketch).addGeometry(Part.BSplineCurve(_finalbsp_poles,_finalbsp_mults,_finalbsp_knots,True,3,None,False),False)
 
         del(_finalbsp_poles)
         del(_finalbsp_knots)
@@ -376,7 +377,7 @@ for span_id, span_height in enumerate(spans):
 
         # get id
         object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+        for id, element in enumerate(App.getDocument(document).getObject(sketch).Geometry):
             #print(id, element, element.__class__.__name__)
             if 'BSplineCurve' in element.__class__.__name__:
                 object_counter += 1
@@ -390,7 +391,7 @@ for span_id, span_height in enumerate(spans):
         conList = []
         for i in range(len(vectors)):
             conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',TE_radius_ids[-1] + 1 + i,1,spline_upper_id,i))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
+        App.getDocument(document).getObject(sketch).addConstraint(conList)
         del conList
 
         constraintList = []
@@ -404,17 +405,17 @@ for span_id, span_height in enumerate(spans):
         for i in range(int(len(TE_radius_vectors)/2)):
             current_id += 1
             constraintList.append(Sketcher.Constraint('Coincident', current_id, 1, TE_radius_ids[i], 2))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        App.getDocument(document).getObject(sketch).addConstraint(constraintList)
         del constraintList
 
 
         # split spline at LE and TE
-        App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
-        App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,TE_radius_vectors[int(len(TE_radius_vectors)/2)])
+        App.getDocument(document).getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
+        App.getDocument(document).getObject(sketch).split(spline_upper_id,TE_radius_vectors[int(len(TE_radius_vectors)/2)])
 
         # get id
         object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+        for id, element in enumerate(App.getDocument(document).getObject(sketch).Geometry):
             #print(id, element, element.__class__.__name__)
             if 'BSplineCurve' in element.__class__.__name__:
                 object_counter += 1
@@ -425,8 +426,8 @@ for span_id, span_height in enumerate(spans):
             print("spline_lower_id =", spline_lower_id)
 
         if constrained:
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_lower_id))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_lower_id))
 
 
     # blunt trailing edge
@@ -456,7 +457,7 @@ for span_id, span_height in enumerate(spans):
 
         #sys.exit()
         for i in range(len(vectors)):
-            App.getDocument('Unnamed').getObject(sketch).addGeometry(points[i],True)
+            App.getDocument(document).getObject(sketch).addGeometry(points[i],True)
 
         #sys.exit()
         # suction side (upper spline)
@@ -472,7 +473,7 @@ for span_id, span_height in enumerate(spans):
         _finalbsp_knots.extend(spline_upper.getKnots())
         _finalbsp_mults.extend(spline_upper.getMultiplicities())
 
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(Part.BSplineCurve(_finalbsp_poles,_finalbsp_mults,_finalbsp_knots,False,3,None,False),False)
+        App.getDocument(document).getObject(sketch).addGeometry(Part.BSplineCurve(_finalbsp_poles,_finalbsp_mults,_finalbsp_knots,False,3,None,False),False)
 
         del(_finalbsp_poles)
         del(_finalbsp_knots)
@@ -480,7 +481,7 @@ for span_id, span_height in enumerate(spans):
 
         # get id
         object_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+        for id, element in enumerate(App.getDocument(document).getObject(sketch).Geometry):
             #print(id, element, element.__class__.__name__)
             if 'BSplineCurve' in element.__class__.__name__:
                 object_counter += 1
@@ -495,30 +496,30 @@ for span_id, span_height in enumerate(spans):
             conList.append(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',len(point_ids) + i,1,spline_upper_id,i))
 
             # we could avoid having to pass by conList, but then the code takes longer to execute; I don't know why
-            # App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
+            # App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('InternalAlignment:Sketcher::BSplineKnotPoint',point_ids_upper[i],1,spline_upper_id,i))
 
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(conList)
+        App.getDocument(document).getObject(sketch).addConstraint(conList)
         del conList
 
         constraintList = []
         for i in range(len(point_ids)):
             constraintList.append(Sketcher.Constraint('Coincident', len(point_ids) + i, 1, point_ids[i], 1))
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        App.getDocument(document).getObject(sketch).addConstraint(constraintList)
         del constraintList
 
 #        if constrained:
 #            # blocking the spline doesn't impede its trailing edge point from moving when creating the trailing edge; I don't know why
-#            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
+#            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('Block',spline_upper_id))
 
 
         #sys.exit()
         # pressure side (lower spline)
         # split at point (0,0), which must be part of the airfoil profile
-        App.getDocument('Unnamed').getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
+        App.getDocument(document).getObject(sketch).split(spline_upper_id,App.Vector(0,0,0))
 
         # let's retrieve the id of the newly created lower spline
         spline_counter = 0
-        for id, element in enumerate(App.getDocument('Unnamed').getObject(sketch).Geometry):
+        for id, element in enumerate(App.getDocument(document).getObject(sketch).Geometry):
             if 'BSplineCurve' in element.__class__.__name__:
                 spline_counter += 1
             if spline_counter == 2:
@@ -531,42 +532,42 @@ for span_id, span_height in enumerate(spans):
         # The trailing edge will be blunt, but some meshing software are able to automatically change it for round
         #sys.exit()
         # trailing edge upper
-        TE_upper_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry)
+        TE_upper_id = len(App.getDocument(document).getObject(sketch).Geometry)
         TE_upper_line = Part.LineSegment(vectors_upper[0],vectors_lower[-1])
-        App.getDocument('Unnamed').getObject(sketch).addGeometry(TE_upper_line,False)
+        App.getDocument(document).getObject(sketch).addGeometry(TE_upper_line,False)
 
         constraintList = []
         constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 1, spline_upper_id, 1))
         constraintList.append(Sketcher.Constraint('Coincident', TE_upper_id, 2, spline_lower_id, 2))
         #constraintList.append(Sketcher.Constraint('Vertical', TE_upper_id)) # may not be always the case
-        App.getDocument('Unnamed').getObject(sketch).addConstraint(constraintList)
+        App.getDocument(document).getObject(sketch).addConstraint(constraintList)
         del constraintList
 
         #sys.exit()
         # trailing edge lower
         # split at mid point of line
-        TE_lower_id = len(App.getDocument('Unnamed').getObject(sketch).Geometry)
+        TE_lower_id = len(App.getDocument(document).getObject(sketch).Geometry)
         TE_mid_x = (x_upper_chord[-1] + x_lower_chord[-1]) / 2
         TE_mid_y = (y_upper_chord[-1] + y_lower_chord[-1]) / 2
         TE_mid_vector = App.Vector(TE_mid_x, TE_mid_y, 0)
-        App.getDocument('Unnamed').getObject(sketch).split(TE_upper_id, TE_mid_vector)
+        App.getDocument(document).getObject(sketch).split(TE_upper_id, TE_mid_vector)
 
         if constrained:
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',-1,1,TE_upper_id,2,TE_mid_x))
-            App.getDocument('Unnamed').getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',-1,1,TE_upper_id,2,TE_mid_y))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceX',-1,1,TE_upper_id,2,TE_mid_x))
+            App.getDocument(document).getObject(sketch).addConstraint(Sketcher.Constraint('DistanceY',-1,1,TE_upper_id,2,TE_mid_y))
 
 
     #sys.exit()
     # end of span loop
 
 #sys.exit()
-App.getDocument('Unnamed').getObject('Body').newObject('PartDesign::AdditiveLoft','AdditiveLoft')
-App.getDocument('Unnamed').getObject('AdditiveLoft').Profile = App.getDocument('Unnamed').getObject('Sketch0')
-App.getDocument('Unnamed').getObject('Sketch0').Visibility = False
+App.getDocument(document).getObject('Body').newObject('PartDesign::AdditiveLoft','AdditiveLoft')
+App.getDocument(document).getObject('AdditiveLoft').Profile = App.getDocument(document).getObject('Sketch0')
+App.getDocument(document).getObject('Sketch0').Visibility = False
 
 for i in range(1, n_span):
-    App.getDocument('Unnamed').getObject('AdditiveLoft').Sections += [(App.getDocument('Unnamed').getObject(sketch_names[i]), [''])] # sketch_names[1:]
-    App.getDocument('Unnamed').getObject(sketch_names[i]).Visibility = False
+    App.getDocument(document).getObject('AdditiveLoft').Sections += [(App.getDocument(document).getObject(sketch_names[i]), [''])] # sketch_names[1:]
+    App.getDocument(document).getObject(sketch_names[i]).Visibility = False
 
 # Show result
 App.ActiveDocument.recompute()
